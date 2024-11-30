@@ -1,0 +1,249 @@
+---
+title: "Frequency analyses - PURL winter 2022"
+author: 
+date: "12/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+## leave all of this setup chunk as is
+
+library('tidyverse')
+library('data.table')
+library("plyr")
+library("ggplot2")
+ASL.Lex <- read_csv('ASL.Lex2.0.clean.csv')
+SB <- read_csv("All Countries - clean.csv")
+
+SB <- SB %>% mutate(LexicalClass = LexcialClass)
+
+#For handshape, there are 91 possible values for SB. Other values are changed to NA
+SB <- SB %>% filter(Handshape<91)
+
+#Remove any straggler NAs.
+SB <- SB %>% drop_na()
+
+#Combine both databases into one.
+combined_df <- merge(ASL.Lex, SB, all = TRUE)
+
+#Change NonDom handshape --- to NAs
+combined_df$NonDominantHandshape <- revalue(combined_df$NonDominantHandshape, c('---' = NA))
+
+#For TISLR abstract
+SB$NonDominantHandshape <- revalue(SB$NonDominantHandshape, c('---' = NA))
+```
+
+
+```{r}
+# Find frequency of each handshape for each langauge
+ASL <- combined_df %>% filter(Language == "ASL") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+ASL$freq <- ASL$freq/sum(ASL$freq)
+
+barplot(ASL$freq, names.arg=c(ASL$Handshape), cex.names=0.6)
+
+HKG <- combined_df %>% filter(Language == "HKG - Hong Kong") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+HKG$freq <- HKG$freq/sum(HKG$freq)
+
+barplot(HKG$freq, names.arg=c(HKG$Handshape), cex.names=0.6)
+
+ID1 <- combined_df %>% filter(Language == "ID1 - Jakarta, Indonesia") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+ID1$freq <- ID1$freq/sum(ID1$freq)
+
+barplot(ID1$freq, names.arg=c(ID1$Handshape), cex.names=0.6)
+
+ID2 <- combined_df %>% filter(Language == "ID2 - Yogyakarta, Indonesia") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+ID2$freq <- ID2$freq/sum(ID2$freq)
+
+barplot(ID2$freq, names.arg=c(ID2$Handshape), cex.names=0.6)
+
+JPN <- combined_df %>% filter(Language == "JPN - Japan") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+JPN$freq <- JPN$freq/sum(JPN$freq)
+
+barplot(JPN$freq, names.arg=c(JPN$Handshape), cex.names=0.6)
+
+LKA <- combined_df %>% filter(Language == "LKA - Sri Lanka") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+LKA$freq <- LKA$freq/sum(LKA$freq)
+
+barplot(LKA$freq, names.arg=c(LKA$Handshape), cex.names=0.6)
+
+VN1 <- combined_df %>% filter(Language == "VN1 - Ho Chi Minh City, Vietnam") %>% group_by(Handshape) %>% dplyr::summarize(freq = n()) %>% arrange(desc(freq))
+VN1$freq <- VN1$freq/sum(VN1$freq)
+
+barplot(VN1$freq, names.arg=c(VN1$Handshape), cex.names=0.6)
+
+freq_summary <- data.frame(matrix(ncol = 1, nrow = 100))
+colnames(freq_summary) <- c("Handshape")
+freq_summary$Handshape <- seq(1,100)
+
+freq_summary <- merge(freq_summary,ASL,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "ASL"
+freq_summary <- merge(freq_summary,HKG,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "HKG"
+freq_summary <- merge(freq_summary,ID1,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "ID1"
+freq_summary <- merge(freq_summary,ID2,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "ID2"
+freq_summary <- merge(freq_summary,JPN,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "JPN"
+freq_summary <- merge(freq_summary,LKA,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "LKA"
+freq_summary <- merge(freq_summary,VN1,all.x = TRUE)
+colnames(freq_summary)[which(names(freq_summary) == "freq")] <- "VN1"
+
+# Find frequency of each handshape across languages (controlling for different sample sizes across langauges) 
+freq_summary[is.na(freq_summary)] <- 0
+freq_summary_no_index <- freq_summary %>% select(-Handshape)
+freq_summary <- freq_summary %>% mutate(Average = rowMeans(freq_summary_no_index))
+freq_summary <- freq_summary %>% arrange(desc(Average))
+freq_summary$index <- seq(100)
+barplot(freq_summary$Average, names.arg=c(freq_summary$Handshape), cex.names=0.3)
+plot(-log(freq_summary$Average)[1:96], pch=19, lwd=0.1)
+
+
+
+# Fifty percent for all
+
+i <- 0
+agg <- 0
+while (agg < 0.5){
+  i <- i + 1
+  agg <- agg + freq_summary$Average[i]
+}
+freq_summary$Handshape[1:i]
+
+
+# Fifty percent for each
+
+# > handshapes.fifty.percent(JPN)
+# [1] "7"  "49" "25" "57" "8"  "1"  "51"
+
+handshapes.fifty.percent <- function(lang){
+i <- 0
+agg <- 0
+while (agg < 0.5){
+  i <- i + 1
+  agg <- agg + lang$freq[i]
+}
+print(lang$Handshape[1:i])
+}
+
+ASL$index <- seq(nrow(ASL))
+HKG$index <- seq(nrow(HKG))
+ID1$index <- seq(nrow(ID1))
+ID2$index <- seq(nrow(ID2))
+JPN$index <- seq(nrow(JPN))
+LKA$index <- seq(nrow(LKA))
+VN1$index <- seq(nrow(VN1))
+
+# More Visualization
+ggplot(data=freq_summary, aes(x=index, y=Average)) + geom_bar(stat="Identity")
+
+# Zipf (Power Law)
+# Take log on both sides of the equation y = k * x ^ (-a)
+# -> log(y) = -a * log(x) + log(k)
+
+ASL.zipf.lm <- lm(log(freq) ~ log(index), data = ASL)
+ggplot(data=ASL, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(ASL.zipf.lm)[[2]], intercept = coef(ASL.zipf.lm)[[1]])
+ggplot(data=ASL, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(ASL.zipf.lm)[[1]]) * x^coef(ASL.zipf.lm)[[2]]})
+
+HKG.zipf.lm <- lm(log(freq) ~ log(index), data = HKG)
+ggplot(data=HKG, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(HKG.zipf.lm)[[2]], intercept = coef(HKG.zipf.lm)[[1]])
+ggplot(data=HKG, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(HKG.zipf.lm)[[1]]) * x^coef(HKG.zipf.lm)[[2]]})
+
+ID1.zipf.lm <- lm(log(freq) ~ log(index), data = ID1)
+ggplot(data=ID1, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(ID1.zipf.lm)[[2]], intercept = coef(ID1.zipf.lm)[[1]])
+ggplot(data=ID1, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(ID1.zipf.lm)[[1]]) * x^coef(ID1.zipf.lm)[[2]]})
+
+ID2.zipf.lm <- lm(log(freq) ~ log(index), data = ID2)
+ggplot(data=ID2, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(ID2.zipf.lm)[[2]], intercept = coef(ID2.zipf.lm)[[1]])
+ggplot(data=ID2, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(ID2.zipf.lm)[[1]]) * x^coef(ID2.zipf.lm)[[2]]})
+
+JPN.zipf.lm <- lm(log(freq) ~ log(index), data = JPN)
+ggplot(data=JPN, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(JPN.zipf.lm)[[2]], intercept = coef(JPN.zipf.lm)[[1]])
+ggplot(data=JPN, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(JPN.zipf.lm)[[1]]) * x^coef(JPN.zipf.lm)[[2]]})
+
+LKA.zipf.lm <- lm(log(freq) ~ log(index), data = LKA)
+ggplot(data=LKA, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(LKA.zipf.lm)[[2]], intercept = coef(LKA.zipf.lm)[[1]])
+ggplot(data=LKA, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(LKA.zipf.lm)[[1]]) * x^coef(LKA.zipf.lm)[[2]]})
+
+VN1.zipf.lm <- lm(log(freq) ~ log(index), data = VN1)
+ggplot(data=VN1, aes(x=log(index), y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(VN1.zipf.lm)[[2]], intercept = coef(VN1.zipf.lm)[[1]])
+ggplot(data=VN1, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(VN1.zipf.lm)[[1]]) * x^coef(VN1.zipf.lm)[[2]]})
+
+# Get Rid of Zeroes
+freq_summary_non_zero <- freq_summary %>% filter(row(freq_summary) <= 96)
+# Summary Data in Zipf
+total.zipf.lm <- lm(log(Average) ~ log(index), data = freq_summary_non_zero)
+ggplot(data=freq_summary_non_zero, aes(x=log(index), y=log(Average))) + geom_point(stat="Identity") + geom_abline(slope = coef(total.zipf.lm)[[2]], intercept = coef(total.zipf.lm)[[1]],  color='orchid2', size=0.8) + ylab("Log of frequency") + xlab("Log of rank of handshape") + theme_bw()
+ggplot(data=freq_summary_non_zero, aes(x=index, y=Average)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(total.zipf.lm)[[1]]) * x^coef(total.zipf.lm)[[2]]},  color='orchid2', size=0.8) + ylab("Frequency") + xlab("Rank of handshape") + ylim(0, 0.21) + theme_bw()
+summary(total.zipf.lm)
+
+
+# Exponential Decay
+# Take log on both sides of the equation y = k * e ^ (-l * x)
+# -> log(y) = log(k) - l * x
+
+ASL.exp.lm <- lm(log(freq) ~ index, data = ASL)
+ggplot(data=ASL, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(ASL.exp.lm)[[2]], intercept = coef(ASL.exp.lm)[[1]])
+ggplot(data=ASL, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(ASL.exp.lm)[[1]]) * exp(coef(ASL.exp.lm)[[2]] * x)})
+
+HKG.exp.lm <- lm(log(freq) ~ index, data = HKG)
+ggplot(data=HKG, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(HKG.exp.lm)[[2]], intercept = coef(HKG.exp.lm)[[1]])
+ggplot(data=HKG, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(HKG.exp.lm)[[1]]) * exp(coef(HKG.exp.lm)[[2]] * x)})
+
+ID1.exp.lm <- lm(log(freq) ~ index, data = ID1)
+ggplot(data=ID1, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(ID1.exp.lm)[[2]], intercept = coef(ID1.exp.lm)[[1]])
+ggplot(data=ID1, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(ID1.exp.lm)[[1]]) * exp(coef(ID1.exp.lm)[[2]] * x)})
+
+ID2.exp.lm <- lm(log(freq) ~ index, data = ID2)
+ggplot(data=ID2, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(ID2.exp.lm)[[2]], intercept = coef(ID2.exp.lm)[[1]])
+ggplot(data=ID2, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(ID2.exp.lm)[[1]]) * exp(coef(ID2.exp.lm)[[2]] * x)})
+
+JPN.exp.lm <- lm(log(freq) ~ index, data = JPN)
+ggplot(data=JPN, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(JPN.exp.lm)[[2]], intercept = coef(JPN.exp.lm)[[1]])
+ggplot(data=JPN, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(JPN.exp.lm)[[1]]) * exp(coef(JPN.exp.lm)[[2]] * x)})
+
+LKA.exp.lm <- lm(log(freq) ~ index, data = LKA)
+ggplot(data=LKA, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(LKA.exp.lm)[[2]], intercept = coef(LKA.exp.lm)[[1]])
+ggplot(data=LKA, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(LKA.exp.lm)[[1]]) * exp(coef(LKA.exp.lm)[[2]] * x)})
+
+VN1.exp.lm <- lm(log(freq) ~ index, data = VN1)
+ggplot(data=VN1, aes(x=index, y=log(freq))) + geom_point(stat="Identity") +
+  geom_abline(slope = coef(VN1.exp.lm)[[2]], intercept = coef(VN1.exp.lm)[[1]])
+ggplot(data=VN1, aes(x=index, y=freq)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(VN1.exp.lm)[[1]]) * exp(coef(VN1.exp.lm)[[2]] * x)})
+
+# Summary data in Exponential Decay
+total.exp.lm <- lm(log(Average) ~ index, data = freq_summary_non_zero)
+ggplot(data=freq_summary_non_zero, aes(x=index, y=log(Average))) + geom_point(stat="Identity") + geom_abline(slope = coef(total.exp.lm)[[2]], intercept = coef(total.exp.lm)[[1]], color='orchid2', size=0.8) + ylab("Log of frequency") + xlab("Rank of handshape")+ theme_bw()
+ggplot(data=freq_summary_non_zero, aes(x=index, y=Average)) + geom_point(stat="Identity") +
+  stat_function(fun=function(x){exp(coef(total.exp.lm)[[1]]) * exp(coef(total.exp.lm)[[2]] * x)},  color='orchid2', size=0.8) + ylab("Frequency") + xlab("Rank of handshape") + theme_bw()
+summary(total.exp.lm)
+```
